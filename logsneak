@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+# $Id$
+#
+### BEGIN INIT INFO
+# Provides: logsneak
+# Short-Description: This is a daemon which blocks IPs of bad ssh logins.
+# Description: This is a daemon which blocks IPs of bad ssh logins.
+### END INIT INFO
+
+# chkconfig: 2345 95 05
+# config: /etc/sysconfig/logsneak
+
+# Source function library.
+. /etc/init.d/functions
+
+#
+# Set local vars
+#
+# PKG: package name
+PKG=logsneak
+# prog: package daemon
+prog=/usr/local/sbin/${PKG}.sh
+# RT: iptables recency table
+RT=sshbadlogin
+# IPT: iptables
+IPT=/sbin/iptables
+
+IPRULE="-m recent --name $RT --update --seconds 300 -j DROP"
+
+#
+# Set default options.  Override the defaults and define
+# custom options in /etc/sysconfig/logsneak
+
+#
+LOCKFILE=/var/lock/subsys/$PKG
+
+[ -f /etc/sysconfig/$PKG ] && . /etc/sysconfig/$PKG
+
+
+start() {
+	echo -n $"Starting $PKG:"
+
+	#$IPT -I INPUT 1 -m recent --name $RT --update --seconds 300 -j DROP
+	$IPT -I INPUT 1 $IPRULE
+
+	(setsid $prog &)
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] && touch $LOCKFILE
+	echo
+}
+
+stop() {
+	echo -n $"Stopping $PKG:"
+
+	#$IPT -D INPUT -m recent --name $RT --update --seconds 300 -j DROP
+	$IPT -D INPUT $IPRULE
+
+	killproc $prog -TERM
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] && rm -f $LOCKFILE
+	echo
+}
+
+restart() {
+	stop
+	start
+}
+
+RETVAL=0
+
+# See how we were called.
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  status)
+        status $prog
+	RETVAL=$?
+        ;;
+  restart|reload)
+        restart
+        ;;
+  condrestart)
+        if status $prog > /dev/null; then
+            stop
+            start
+        fi
+        ;;
+  *)
+        echo $"Usage: $0 {start|stop|status|restart|reload}"
+        exit 2
+esac
+exit $RETVAL
+
